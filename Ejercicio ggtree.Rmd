@@ -1,0 +1,370 @@
+---
+title: "GGTree excercise"
+author: "Axel Arango"
+date: "2023-06-09"
+output:
+  html_document:
+    df_print: paged
+  pdf_document: default
+---
+En este ejercicio haremos uso del paquete _ggtree_ para graficar, personalizar, anotar y en general mejorar árboles filogenéticos
+
+Para esto primero se cargarán los paquetes a utilizar:
+```{r eval=F}
+library(ape)
+library(ggtree)
+library(tidytree)
+library(ggimage)
+library(geiger)
+library(caper)
+library(TDbook)
+```
+
+```{r include=FALSE}
+library(ape)
+library(ggtree)
+library(tidytree)
+library(ggimage)
+library(geiger)
+library(caper)
+library(TDbook)
+```
+
+Después leemos el árbol filogenético a utilizar, en el caso de este ejemplo usaremos la filogenia de _Icteridae_, sin embargo, estos ejemplos se pueden hacer en su mayoría con cualquier otra filogenía que tengan disponible.
+
+```{r eval=T}
+ictree<-read.tree("Data/Icteridae_tree.txt")
+ictree
+```
+
+Veamos esta filogenia graficandola usando _ape_, la manera base para R.
+
+```{r eval=T}
+plot(ictree, show.tip.label=F)
+```
+
+Ahora graficaremos el mismo árbol utilizando ggtree, el cual sigue una formula idéntica a la de ggplot.
+
+Nuestro árbol base se llamará *p1*:
+
+```{r eval=T}
+p1<-ggtree(ictree,color="black",size=0.5)
+plot(p1)
+```
+
+con *p1*, al igual que con cualquier otro gráfico de ggplot, podemos agregar parametros de graficación para personalizar o agregar anotaciones a nuestra filogenia.
+
+Primero empezaremos con los parametros de personalización. Por ejemplo, podemos cambiar la disposición de la filogenia utilizando el parametro *layout_*:
+
+```{r eval = T}
+p1+layout_dendrogram()+
+p1+layout_fan()+
+p1+layout_circular()
+```
+
+También podemos cambiar el color del fondo del gráfico
+
+```{r eval =T}
+p1+
+  theme_tree(bgcolor="lightblue")
+```
+
+Agregar las etiquetas para las puntas de una manera personalizable:
+
+```{r eval =T}
+p1+
+  geom_tiplab(size=1,color="darkblue",angle=10)
+```
+
+formas a las puntas:
+
+```{r eval =T}
+p1+
+  geom_tippoint(size=1,color="brown",shape=10)
+```
+
+Etiquetas a los nodos:
+
+```{r eval=T}
+p1+ 
+  geom_nodelab(size=1,color="purple")
+```
+
+o formas a los nodos:
+
+```{r eval= T}
+p1+ 
+  geom_nodepoint(size=2,color="red",shape=16)
+```
+e incluso agregar una escala temporal a la filogenia
+```{r eval=T}
+p1+theme_tree2()
+```
+
+Cómo en ggplot, todos estos parámetros son aditivos, por lo cual puedes construir la filogenía de manera gradual
+
+```{r eval=T}
+p1+ 
+  layout_dendrogram()+
+  theme_tree(bgcolor="#e9f0ea")+
+  geom_tiplab(size=0.5,color="darkblue",angle=45)+
+  geom_tippoint(size=1,color="brown",shape=10)+
+  geom_nodelab(size=1,color="purple")+
+  geom_nodepoint(size=2,color="red",alpha=0.3,shape=16)
+```
+
+Ahora para la anotación de los árboles, se pueden hacer varias cosas, a mi, por ejemplo, me gusta mucho el género _Quiscalus_, y quisiera saber donde se encuentra en la filogenia.
+
+Para esto primero debemos encontrar el nodo del ancestro en común más reciente para este grupo. Usando un _tibble_ y la estructura de _dblyr_ es muy facil, primero transformamos nuestro árbol en un tibble y despues utilizando un filtro buscamos las especies de _Quiscalus_:
+
+```{r eval=T}
+as_tibble(ictree) %>%
+  filter(grepl("Quiscalus",label))
+```
+
+Después usando la función *MRCA* podemos encontrar el ancestro en común de estas especies, en las cuales podemos usar los nombres de las especie con la longitud de rama más alargada y con la longitud de rama más corta, o sus nodos:
+
+```{r eval=T}
+MRCA(as_tibble(ictree),41,43)
+```
+```{r eval=T}
+MRCA(as_tibble(ictree),"Quiscalus_quiscula","Quiscalus_mexicanus")
+```
+
+Ahora sabiendo que el ancestro en común de _Quiscalus_ se encuentra en el nodo 146, puedo utilizar esta información para anotar la filogenia utilizando el parametro *geom_cladelab*,, el cual
+
+```{r eval=T}
+p1+
+  geom_cladelab(node=146,label = "Quiscalus",offset=0,barcolor="red",textcolor="brown",angle=90, offset.text=0.1)
+```
+
+y que tal el genero que tiene el nombre de la familia: _Icterus_:
+
+```{r eval=T}
+as_tibble(ictree) %>%
+  filter(grepl("Icterus",label))
+```
+
+```{r eval=T}
+MRCA(as_tibble(ictree),25,14)
+```
+
+```{r eval=T}
+p1+xlim(0,11)+
+  geom_cladelab(node=104,label="Icterus",geom="label",fill="yellow",textcolor="red", barcolor="gray",angle=90)
+```
+
+También podemos dibujar una linea entre dos taxa, que pudieran o no estár relacionados, utilizando el parametro *geom_strip*:
+
+```{r eval=T}
+p1+xlim(0,15)+
+  geom_strip("Quiscalus_quiscula","Icterus_icterus",label=" un clado polifilético", barsize = 2, offset.text = 0.2)
+```
+
+Un parametro de anotación muy bueno, también es el *geom_highlight*, el cual nos permite destacar clados en particular, utilizando los nodos de ancestro en común:
+
+```{r eval=T}
+p1+
+  geom_highlight(node=146,alpha=0.5,fill="purple",type = "rect")
+```
+
+¿Qué clado es este?
+
+```{r eval=T}
+p1+
+  geom_highlight(node=146,alpha=0.5,fill="purple",type = "rect")+
+  geom_cladelab(node=146,label = "Quiscalus",offset=0,barcolor="#9418f2",textcolor="#4c0980", offset.text=0)+
+  xlim(0,11.5)
+```
+
+Una función bastante interesante de _ggtree_ es que se pueden personalizar las filogenías utilizando recursos en línea como _phylopic_ o enriquecerlas con imagenes propias. Para poder hacer uso de esta función, primero debemos cargar un paquete extra:
+
+```{r eval=T}
+library("rsvg")
+```
+
+Hacer uso de _phylopic_ para personalizar las anotaciones de las filogenias requiere que primero hagamos una tabla con los nodos, el nombre de la especie o clado a los cuales vamos a anotar y el phylopic_id.
+
+En este ejemplo utilizaré los clados _Quiscalus_ y _Agelaius_, que sé que tienen imagenes indexadas en _phylopic_. Encontrar los phylopic_id es fácil usando la función _phylopic_uid_:
+
+```{r eval=T}
+ids<-phylopic_uid(c("Quiscalus","Agelaius"))
+ids
+```
+
+Con estos ids, ya podemos crear nuestra tabla con los datos necesarios y después gráficar nuestra filogenia:
+
+```{r eval=T}
+dt<-data.frame(node=c(146,136),image=ids$uid,genus=c("Quiscalus","Agelaius"))
+dt
+```
+```{r eval=T}
+p1+ geom_cladelab(data = dt, 
+                      mapping = aes(node = node, label = genus, 
+                                    image = image, color = genus), 
+                      geom = "phylopic", offset = 0, offset.text=0.5)
+```
+
+Además, usando la argumentación como en ggplot, podemos personalizar los colores de nuestros _phylopics_:
+
+```{r eval=T}
+p1+ geom_cladelab(data = dt, 
+                      mapping = aes(node = node, label = genus, 
+                                    image = image, color = genus), 
+                      geom = "phylopic", offset = 0, offset.text=0.5)+ scale_color_manual(values=c("#f75419","purple"))
+```
+
+Utilizando estas parametrizaciones, podemos crear una filogenia bastante atractiva:
+```{r eval=T}
+pr<-p1+ geom_cladelab(data = dt, 
+                      mapping = aes(node = node, label = genus, 
+                                    image = image, color = genus), 
+                      geom = "phylopic", offset = 0, offset.text=0.5)+
+  scale_color_manual(values=c("#f75419","purple"))+
+  geom_highlight(node=146,alpha=0.5,fill="purple",type = "rect")+
+  geom_highlight(node=136,alpha=0.5,fill="#f75419",type = "rect")
+pr
+```
+
+y este es un ejemplo de el tipo de filogenias que pueden crearse haciendo uso de todas estas parametrizaciones:
+
+```{r eval= T}
+tree<-read.tree("Data/nodedtree.txt")
+nodes<-c(825,725,921,1042,1080,1375,707)
+labels<-c("Parulidae","Icteridae","Passerellidae","Cardinalidae","Thraupidae","Emberizidae","Calcariidae")
+#
+
+iu2<-phylopic_uid(c("Setophaga","Quiscalus","Passerellidae","Cardinalis","Thraupidae","Emberizidae","Emberiza"),seed=1)
+
+dt<-data.frame(node=nodes,name=labels,image=iu2$uid)
+
+p2<-ggtree(tree,layout="circular",color="white")+theme_tree("black")
+
+p3<-p2+
+  geom_highlight(node=825,fill="yellow")+
+  geom_cladelab(node=825,label="Parulidae",barcolor="yellow",textcolor="white",offset.text=4, fontsize=4)+
+  
+  geom_highlight(node=725,fill="orange")+
+  geom_cladelab(node=725,label="Icteridae",barcolor="orange",textcolor="white",offset.text=5, fontsize=4,angle=45)+
+    
+    geom_highlight(node=921,fill="brown")+
+  geom_cladelab(node=921,label="Passerellidae",barcolor="brown",textcolor="white",offset.text=1, fontsize=4)+
+  
+  geom_highlight(node=1042,fill="red")+
+geom_cladelab(node=1042,label="Cardinalidae",barcolor="red",textcolor="white",offset.text=7, fontsize=4,angle=-45,align=T)+
+  
+  geom_highlight(node=1079,fill="lightgreen")+
+geom_cladelab(node=1079,label="Thraupidae",barcolor="lightgreen",textcolor="white",offset.text=2, fontsize=4)+
+  
+  geom_highlight(node=1375,fill="magenta")+
+  geom_cladelab(node=1375,label="Emberizidae",barcolor="magenta",textcolor="white",offset.text=1, fontsize=4,align=T)+
+  
+  geom_highlight(node=707,fill="blue")+
+  geom_cladelab(node=707,label="Calcariidae",barcolor="blue",textcolor="white",offset.text=1, fontsize=4,align=T)
+
+
+p3+
+geom_cladelab(data = dt, 
+              mapping = aes(node = node, label = name, 
+                            image = image, color = name), 
+              geom = "phylopic", offset.text=c(10,7,6,5,9,4,10))+
+  scale_colour_manual(values=c("blue","red","magenta","orange","yellow","brown","lightgreen"))
+```
+
+Para poder anotar las filogenias con imagenes, es recomendable usar árboles filogéticos pequeños, en los cuales quizá con un grupo de representantes bastaría, para este ejemplo usaremos una filogenia parafiletica con los generos _Quiscalus_ (Los zanates), _Icterus_ (Las calandrias), _Molothrus_ (Los tordos), _Agelaius_ (Los sargentos) y _Psarocolius_ (Las oropendolas):
+
+
+Entonces, primero recuperamos un representante de cada grupo, _ape_ es muy bueno para esto usando la función *keep.tip*:
+
+```{r eval=T}
+grouptree<-keep.tip(ictree,c("Quiscalus_mexicanus", "Icterus_galbula","Molothrus_aeneus","Agelaius_phoeniceus","Psarocolius_montezuma"))
+
+grouptree$tip.label<-c("Calandrias","Sargentos","Zanates","Tordos","Oropendolas")
+
+p4<-ggtree(grouptree,size=1)
+
+p4+xlim(0,15)+
+  geom_tiplab(color="navyblue",offset = 0.5)
+  
+```
+
+Una vez teniendo este árbol parafilético, podemos colocar las imagenes gusto en sus grupos correspondientes, es importante considerar, que las imagenes deben tener el nombre exacto del grupo o especie y el mismo formato:
+
+```{r eval=T}
+p4+ 
+  xlim(NA, 15) + ylim(NA, 5.5)+
+  geom_tiplab(aes(image=paste0("imagenes/", label, '.jpg')),geom="image", offset=3, align=1, size=0.18)+
+  geom_tiplab(geom="label",color="black",fill="white")
+```
+
+finalmente, se puede usar ggtree, para graficar atributos de las especies en la filogenia.
+
+Para hacer esto, primero debemos cargar los atributos de los Icteridos, en este caso usaremos el Hand Wing Index (HWI) y el hábito migratorio:
+
+```{r eval=T}
+hwi<-read.csv("Data/hwi_icteridae.csv",header=T)
+head(hwi)
+```
+
+```{r eval=T}
+migrants<-read.csv("Data/icterimigrants.csv",header=T)
+head(migrants)
+```
+
+Una vez cargados los datos, la manera más fácil de utilizarlos es uniendolos a la filogenia usando la funcion *full_join*, es importante que las especies estén etiquetadas como label, para que la función las reconozca:
+
+```{r eval=T}
+names(hwi)<-c("label","hwi")
+names(migrants)<-c("label","migratory")
+
+hwimigrants<-merge(hwi,migrants,by="label")
+datatree<-full_join(ictree,hwimigrants,by="label")
+datatree
+
+```
+
+¡Listo! Ahora tenemos una filogenia con atributos y podemos gráficarlos juntos
+
+Primero gráficaremos los valores continuos del HWI sobre las puntas del árbol en una escala de colores:
+```{r eval=T}
+p5<-ggtree(datatree)
+p5+
+  geom_tippoint(aes(color=hwi))
+```
+
+podemos también personalizar esta escala:
+
+```{r eval=T}
+p5+
+  geom_tippoint(aes(color=hwi),shape=15)+
+  scale_colour_gradient(low='blue', high='red',breaks= c(15,20,25,30,35))
+  
+```
+
+¿Y cómo se verían los datos binarios?
+
+```{r eval=T}
+p5+
+  geom_tippoint(aes(color=migratory),shape=15)+
+    scale_colour_manual(values = c("green","orange"))
+
+```
+
+y ¿Pueden combinarse?
+
+Esto puede hacerse con un lenguaje de _dblyr_
+
+
+```{r eval=T}
+px<- p1%<+% migrants + geom_tippoint(aes(color=migratory),shape=15)+
+  scale_color_manual(values = c("#961d29","#1420a3"))+
+  scale_fill_manual(values = c("#961d29","#1420a3"))
+  
+  
+px+ geom_facet(panel="HWI",data = hwi,geom=geom_col,mapping=aes(x=hwi,color=migratory,fill=migratory),orientation='y')+
+    theme_tree2()
+```
+
+
+
+
